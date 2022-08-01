@@ -78,10 +78,11 @@ def main():
     topic = f'{args.topic.strip("/")}/{args.component_name.strip("/")}/{args.node_id.strip("/")}/volume/'
     if args.remove:
         publish(connection, topic + "config", '')
+        publish(connection, topic + "state", '')
         exit(0)
 
     publish(connection, topic + "state", mixer.getvolume()[0])
-    publish(connection, topic + "config", f'{{"name": "volume", "min":0, max:"100", "device_class": "number", "command_topic": "{topic}set", "state_topic": "{topic}state"}}')
+    publish(connection, topic + "config", f'{{"name": "volume", "min":0, "max":100, "device_class": "number", "command_topic": "{topic}set", "state_topic": "{topic}state"}}')
 
     def on_message(client, userdata, msg):
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
