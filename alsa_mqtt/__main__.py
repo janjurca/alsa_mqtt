@@ -5,6 +5,8 @@ import alsaaudio
 import sys
 from paho.mqtt import client as mqtt_client
 import random
+import platform
+
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -41,11 +43,14 @@ def main():
     main_parser.add_argument('--card', action='store', help="Alsa card")
     main_parser.add_argument('--mixer', default="Master", action='store', help="Alsa mixer")
     main_parser.add_argument('--cards', action="store_true", help='Show available alsa cards')
-    main_parser.add_argument('--topic', default="alsa_mqtt", action="store", help='MQTT topic path prefix eg: "/home/livingroom/rpi/" ... tool controlled zone ...')
+    main_parser.add_argument('--topic', default="homeassistant", action="store", help='MQTT topic path prefix eg: "homeassistant"')
+    main_parser.add_argument('--component-name', default="number", action="store", help='MQTT topic component part')
+    main_parser.add_argument('--node-id', default=platform.node(), action="store", help='MQTT topic node id part')
     main_parser.add_argument('--broker', default="localhost", action="store", help='MQTT broker address')
     main_parser.add_argument('--port', default=1883, type=int, action="store", help='MQTT port')
     main_parser.add_argument('--username', type=str, action="store", help='MQTT username')
     main_parser.add_argument('--password', type=str, action="store", help='MQTT password')
+    main_parser.add_argument('--remove', action="store_true", help='Sends blank config string which removes entity from HASS')
 
     args = main_parser.parse_args()
 
@@ -70,16 +75,22 @@ def main():
 
     connection = mqtt_connection()
 
-    topic = args.topic.rstrip("/") + "/volume"
-    publish(connection, topic, mixer.getvolume()[0])
+    topic = f'{args.topic.strip("/")}/{args.component_name.strip("/")}/{args.node_id.strip("/")}/volume/'
+    if args.remove:
+        publish(connection, topic + "config", '')
+        exit(0)
+
+    publish(connection, topic + "state", mixer.getvolume()[0])
+    publish(connection, topic + "config", f'{{"name": "volume", "min":0, max:"100", "device_class": "number", "command_topic": "{topic}/set", "state_topic": "{topic}state"}}')
 
     def on_message(client, userdata, msg):
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
-        if msg.topic == topic:
+        if msg.topic == topic + "/set":
             volume = max(0, min(100, int(msg.payload.decode())))
             mixer.setvolume(volume)
+            publish(connection, topic + "state", mixer.getvolume()[0])
 
-    connection.subscribe(topic)
+    connection.subscribe(topic + "/set")
     connection.on_message = on_message
     connection.loop_forever()
 
