@@ -81,16 +81,16 @@ def main():
         exit(0)
 
     publish(connection, topic + "state", mixer.getvolume()[0])
-    publish(connection, topic + "config", f'{{"name": "volume", "min":0, max:"100", "device_class": "number", "command_topic": "{topic}/set", "state_topic": "{topic}state"}}')
+    publish(connection, topic + "config", f'{{"name": "volume", "min":0, max:"100", "device_class": "number", "command_topic": "{topic}set", "state_topic": "{topic}state"}}')
 
     def on_message(client, userdata, msg):
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
-        if msg.topic == topic + "/set":
+        if msg.topic == topic + "set":
             volume = max(0, min(100, int(msg.payload.decode())))
             mixer.setvolume(volume)
             publish(connection, topic + "state", mixer.getvolume()[0])
 
-    connection.subscribe(topic + "/set")
+    connection.subscribe(topic + "set")
     connection.on_message = on_message
     connection.loop_forever()
 
